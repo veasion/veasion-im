@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>控制端</title>
+<script src="./js/jquery-1.7.2.min.js"></script>
+<script src="./js/sockjs.min.js"></script>
+<script src="./js/reconnecting-websocket.min.js"></script>
+<script type="text/javascript">
+
+	var socket;
+	var host = "127.0.0.1:11630";
+	var uri = "/websocket";//?roomNo=" + getParam("roomNo");
+	
+	if ('WebSocket' in window) {
+		// socket = new WebSocket("ws://" + host + uri);
+	    socket = new ReconnectingWebSocket("ws://" + host + uri, null, {debug:true, maxReconnectAttempts:4});
+	} else if ('MozWebSocket' in window) {
+	    socket = new MozWebSocket("ws://" + host + uri);
+	} else {
+	    socket = new SockJS("http://" + host + "/sockjs" + uri);
+	}
+	
+	socket.onopen = function(evnt) {
+	    console.log("socket open.");
+	};
+	
+	socket.onmessage = function(evnt) {
+	    console.log("消息：" + evnt.data);
+	};
+	
+	socket.onerror = function(evnt) {
+	    console.log("socket error !");
+	};
+	
+	socket.onclose = function(evnt) {
+	    console.log("socket close..");
+	}
+	
+	function sendMsg(data) {
+		socket.send(JSON.stringify({ message: data, messageType: 'DEMO_MESSAGE' }));
+	}
+	
+	// 推送文本消息
+	function sendText() {
+		var data = {"socketName": "text_msg", "message": "推送消息：" + $("#text").val()};
+		sendMsg(data);
+		$("#text").val("");
+		$("#chatContext").scrollTop($("#chatContext").scrollHeight);
+	}
+	
+	// 推送视频播放消息
+	function videoPlay(time) {
+		sendMsg({"socketName": "video_play", "message": {"time": time}});
+	}
+	
+	// 推送视频暂停消息
+	function videoPause() {
+		sendMsg({"socketName": "video_pause"});
+	}
+	
+	function getParam(variable) {
+		var query = window.location.search.substring(1);
+		var vars = query.split("&");
+		for (var i=0;i<vars.length;i++) {
+			var pair = vars[i].split("=");
+			if(pair[0] == variable){
+				return pair[1];
+			}
+		}
+		return null;
+	}
+	
+	window.onbeforeunload = function () {
+		if(socket != null){
+			socket.close();
+		}
+    }
+</script>
+</head>
+<body>
+	<div style="text-align: center;">
+		<br><br>
+		<input type="text" id="text">&nbsp;<button onclick="sendText()">推送消息</button><br>
+	</div>
+	<br><br><hr><br><br>
+	<div style="text-align: center;">
+		选择图片：<input id="file" type="file">
+		<button onclick="reset()">重新涂鸦</button>
+		<br><br>
+		<canvas id="canvas" width="480" height="360" style="border:1px solid green;cursor: default;">
+			您的破浏览器不兼容，请升级！
+		</canvas>
+	</div>
+</body>
+<script type="text/javascript">
+	// 推送时间
+	var lastPushTime = 0, intervalTime = 200;
+	// 获取 canvas 对象
+	var canvas = document.getElementById('canvas');
+	// 获取绘图环境
+	var ctx = canvas.getContext('2d');
+	var last = null;
+	var file = document.getElementById('file');
+	// 文件对象
+	var filedata = null;
+
+	// 鼠标按下
+	canvas.onmousedown = function() {
+		// 在鼠标按下后触发鼠标移动事件
+		canvas.onmousemove = move;
+	}
+
+	// 鼠标抬起取消鼠标移动的事件
+	canvas.onmouseup = function() {
+		canvas.onmousemove = null;
+		last = null;
+		pushImag();
+	}
+
+	// 鼠标移出画布时 移动事件也要取消。
+	canvas.onmouseout = function() {
+		canvas.onmousemove = null;
+		last = null;
+		pushImag();
+	}
+	
+	// 鼠标移动函数
+	function move(e) {
+		if (last != null) {
+			ctx.beginPath();
+			ctx.moveTo(last[0], last[1]);
+			ctx.lineTo(e.offsetX, e.offsetY);
+			ctx.stroke();
+		}
+		// 第一次触发这个函数，只做一件事，把当前 鼠标的 x , y 的位置记录下来
+		// 做下一次 线段的 起始点。
+		last = [e.offsetX, e.offsetY];
+		
+		var time = new Date().getTime();
+		// 推送频率
+		if(time >= lastPushTime + intervalTime){
+			// 记录最后推送时间
+			lastPushTime = time;
+			// 推送
+			pushImag();
+		}
+	}
+
+	// 当文件域内容发生改变时触发函数
+	file.onchange = function(e) {
+		filedata = e.target.files[0];
+		//实例化文件读取对象
+		drawImg(filedata);
+	}
+
+	// 重新在画
+	function reset() {
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		if(!!filedata){
+			drawImg(filedata);
+		}
+		pushImag();
+	}
+
+	// 绘制图片
+	function drawImg(filedata) {
+		var readFile = new FileReader();
+		readFile.readAsDataURL(filedata);
+
+		// 图片读取成功
+		readFile.onload = function() {
+			// 结果
+			var Img = new Image();
+			Img.src = this.result;
+			Img.onload = function() {
+				// 根据 图片的 宽高 来 设置canvas 宽和高 
+				canvas.width = Img.width;
+				canvas.height = Img.height;
+				ctx.drawImage(Img, 0, 0);
+			}
+		}
+		pushImag();
+	}
+
+	function getImageBase64() {
+		return canvas.toDataURL('image/png');
+	}
+	
+	// 推送绘画消息
+	function pushImag() {
+		sendMsg({"socketName": "base64Img", "message": getImageBase64()});
+	}
+</script>
+</html>

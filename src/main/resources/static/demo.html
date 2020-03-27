@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>演示端</title>
+<script src="./js/jquery-1.7.2.min.js" ></script>
+<script src="./js/sockjs.min.js"></script>
+<script src="./js/reconnecting-websocket.min.js"></script>
+<script src="./js/socket-event-bus.js"></script>
+<script type="text/javascript">
+
+	var socket;
+	var host = "127.0.0.1:11630";
+	var uri = "/websocket";//?roomNo=" + getParam("roomNo");
+	
+	// 初始化socket监听器
+	var socketEventBus = new SocketEventBus();
+	
+	if ('WebSocket' in window) {
+		// socket = new WebSocket("ws://" + host + uri);
+	    socket = new ReconnectingWebSocket("ws://" + host + uri, null, {debug:true, maxReconnectAttempts:4});
+	} else if ('MozWebSocket' in window) {
+	    socket = new MozWebSocket("ws://" + host + uri);
+	} else {
+	    socket = new SockJS("http://" + host + "/sockjs" + uri);
+	}
+	
+	socket.onopen = function(evnt) {
+	    console.log("socket open.");
+	};
+	
+	socket.onmessage = function(evnt) {
+		console.log("消息：" + evnt.data);
+		var data = JSON.parse(evnt.data);
+		// 发布socket消息监听
+	    socketEventBus.post(data.message);
+	};
+	
+	socket.onerror = function(evnt) {
+	    console.log("socket error !");
+	};
+	
+	socket.onclose = function(evnt) {
+	    console.log("socket close..");
+	}
+	
+	// 监听文本消息
+	socketEventBus.register("text_msg", function(data) {
+		var text = data.message;
+		$("#chatContext").val($("#chatContext").val() + "\r\n" + text);
+	});
+	
+	// 监听绘画
+	socketEventBus.register("base64Img", function(data) {
+		$("#image").attr("src", data.message);
+		$("#image").show();
+	});
+	
+	function getParam(variable) {
+		var query = window.location.search.substring(1);
+		var vars = query.split("&");
+		for (var i=0;i<vars.length;i++) {
+			var pair = vars[i].split("=");
+			if(pair[0] == variable){
+				return pair[1];
+			}
+		}
+		return null;
+	}
+	
+	window.onbeforeunload = function () {
+		if(socket != null){
+			socket.close();
+		}
+    }
+</script>
+</head>
+<body>
+	<div style="text-align: center;margin-top: 20px;">
+		<img id="image" alt="演示图片" src="#" style="border:1px solid green;display: none;"/>
+		<br><br>
+		<textarea rows="10" cols="35" id="chatContext" readonly="readonly" style="overflow-y:scroll;font-size: 20px;"></textarea><br>
+	</div>
+</body>
+</html>

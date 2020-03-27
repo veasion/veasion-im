@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Test</title>
+<script src="https://cdn.bootcss.com/pako/1.0.6/pako.min.js"></script>
+</head>
+<body>
+<br><br><br>
+<div style="text-align: center;">
+	<span>房间号：</span><input id="roomNo" value="1" style="width: 50px;text-align: center;"/><br><br>
+	<a href="javascript:go('./demo.html?roomNo=' + document.getElementById('roomNo').value);">demo演示（展示端）</a><br><br>
+	<a href="javascript:go('./control.html?roomNo=' + document.getElementById('roomNo').value);">demo演示（控制端）</a>
+	<br><br><br>
+	<hr/><br/><br/>
+</div>
+</body>
+<script>
+function go(uri) {
+	window.open(uri);
+}
+</script>
+</html>
