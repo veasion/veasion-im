@@ -2,6 +2,7 @@ package cn.veasion.im.server;
 
 import cn.veasion.im.bean.ProtocolTypeEnum;
 import cn.veasion.im.protocol.MessageCodec;
+import cn.veasion.im.util.Constant;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
@@ -64,7 +65,7 @@ public class ServerChannelHandler extends ChannelInboundHandlerAdapter {
             if (protocol.startsWith(WEB_SOCKET_PROTOCOL)) {
                 // websocket
                 attr.set(ProtocolTypeEnum.WEB_SOCKET);
-                pipeline.addLast(new WebSocketServerProtocolHandler(WEBSOCKET_PATH, null, true));
+                pipeline.addLast(new WebSocketServerProtocolHandler(WEBSOCKET_PATH, null, true, Constant.MAX_PACK_LENGTH));
                 pipeline.addLast(new WebSocketChannelHandler(server));
             } else {
                 // http
